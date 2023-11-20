@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shopping_list/data/categories.dart';
+import 'package:shopping_list/models/categories.dart';
 import 'package:shopping_list/models/grocery_item.dart';
 import 'package:shopping_list/widgets/new_item.dart';
 
@@ -10,15 +15,49 @@ class GroceryList extends StatefulWidget {
 }
 
 class _GroceryListState extends State<GroceryList> {
-  final List<GroceryItem> _groceryItems = [];
+  List<GroceryItem> _groceryItems = [];
+  bool _isLoading = true;
+
+  void _loadItems() async {
+    final Uri url = Uri.https(
+      'flutter-prep-fd00d-default-rtdb.europe-west1.firebasedatabase.app',
+      'shopping-list.json',
+    );
+    final response = await http.get(url);
+
+    final Map<String, dynamic> listData = json.decode(response.body);
+    final List<GroceryItem> loadedItem = [];
+
+    for (final item in listData.entries) {
+      final Category category = categories.entries
+          .firstWhere(
+              (catItem) => catItem.value.title == item.value['category'])
+          .value;
+      loadedItem.add(
+        GroceryItem(
+          id: item.key,
+          name: item.value['name'],
+          quantity: item.value['quantity'],
+          category: category,
+        ),
+      );
+    }
+
+    setState(() {
+      _groceryItems = loadedItem;
+      _isLoading = false;
+    });
+  }
 
   void _addItem() async {
     final GroceryItem? newItem = await Navigator.of(context).push<GroceryItem>(
       MaterialPageRoute(builder: (ctx) => const NewItem()),
     );
+
     if (newItem == null) {
       return;
     }
+
     setState(() {
       _groceryItems.add(newItem);
     });
@@ -31,10 +70,20 @@ class _GroceryListState extends State<GroceryList> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadItems();
+  }
+
+  @override
   Widget build(BuildContext context) {
     Widget content = const Center(
       child: Text('No items added yet!'),
     );
+
+    if (_isLoading) {
+      content = const Center(child: CircularProgressIndicator());
+    }
 
     if (_groceryItems.isNotEmpty) {
       content = ListView.builder(

@@ -7,7 +7,7 @@ class GroceryItem {
   final Category category;
 
   const GroceryItem({
-    required this.id,
+    this.id = '',
     required this.name,
     required this.category,
     required this.quantity,
